@@ -12,7 +12,6 @@ import xpadro.spring.jms.receiver.NotificationReceiver;
 
 import javax.jms.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -56,19 +55,18 @@ public class TestQueueChain {
     ExecutorService executor = Executors.newCachedThreadPool();
     NotificationReceiver receiver = createDynamicReceiver(con, queue);
     NotificationReceiver receiver2 = createDynamicReceiver(con, queue2);
-    Callable<Void> producer = () -> {
+    executor.submit(() -> {
       sourceStream().forEach(notification -> jmsTemplate.convertAndSend(queue, notification));
       return null;
-    };
-    Callable<Long> consumer = () -> {
-      long[] count = new long[1];
-      receiver.openStream().forEach(notification -> {
-        jmsTemplate.convertAndSend(queue2, notification);
-        count[0]++;
-      });
-      return count[0];
-    };
-    Callable<Long> consumer2 = () -> {
+    });
+    executor.submit(() -> {
+      receiver.openStream().forEach(notification ->
+          jmsTemplate.convertAndSend(queue2, notification));
+      return null;
+    });
+
+    // Count the non-null messages at the end of the chain.
+    Future<Long> consumerFuture = executor.submit(() -> {
       long[] count = new long[1];
       receiver2.openStream().forEach(notification -> {
         if (notification != null) {
@@ -76,10 +74,7 @@ public class TestQueueChain {
         }
       });
       return count[0];
-    };
-    executor.submit(producer);
-    executor.submit(consumer);
-    Future<Long> consumerFuture = executor.submit(consumer2);
+    });
     assertThat((long) TOTAL_MESSAGES, is(consumerFuture.get(1, TimeUnit.MINUTES)));
     executor.shutdown();
     con.close();
