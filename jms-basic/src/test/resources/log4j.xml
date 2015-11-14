@@ -13,9 +13,13 @@
 
 	<!-- Loggers -->
 	<logger name="xpadro.spring.jms">
-		<level value="debug" />
+		<level value="info" />
 	</logger>
-	
+
+	<logger name="org.springframework">
+		<level value="warn" />
+	</logger>
+
 	<root>
 		<priority value="info" />
 		<appender-ref ref="console" />
