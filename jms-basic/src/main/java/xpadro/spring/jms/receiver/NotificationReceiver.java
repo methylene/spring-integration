@@ -14,7 +14,6 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -25,7 +24,7 @@ public class NotificationReceiver implements MessageListener {
   private final int expected;
   private int received;
   private boolean error;
-  private final AtomicBoolean streamOpened = new AtomicBoolean();
+  private boolean streamOpened;
 
   private LinkedBlockingDeque<Notification> queue = new LinkedBlockingDeque<>();
 
@@ -83,10 +82,11 @@ public class NotificationReceiver implements MessageListener {
 
   }
 
-  public Stream<Notification> openStream() {
-    if (!streamOpened.compareAndSet(false, true)) {
+  public synchronized Stream<Notification> openStream() {
+    if (streamOpened) {
       throw new IllegalStateException("Stream already open");
     }
+    streamOpened = true;
     return StreamSupport.stream(
         Spliterators.spliteratorUnknownSize(new MessageIterator(), Spliterator.ORDERED),
         false);
