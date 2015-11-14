@@ -14,9 +14,9 @@ public class Producer {
 	@Qualifier("jmsTemplate")
 	private JmsTemplate jmsTemplate;
 	
-	@Autowired
-	@Qualifier("jmsTopicTemplate")
-	private JmsTemplate jmsTopicTemplate;
+//	@Autowired
+//	@Qualifier("jmsTopicTemplate")
+//	private JmsTemplate jmsTopicTemplate;
 	
 
 	public void convertAndSendMessage(Notification notification) {
@@ -28,6 +28,6 @@ public class Producer {
 	}
 
 	public void convertAndSendTopic(Notification notification) {
-		jmsTopicTemplate.convertAndSend("test.topic", notification);
+//		jmsTopicTemplate.convertAndSend("test.topic", notification);
 	}
 }

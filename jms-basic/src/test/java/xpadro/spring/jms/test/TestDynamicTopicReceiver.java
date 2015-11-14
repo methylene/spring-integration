@@ -2,14 +2,9 @@ package xpadro.spring.jms.test;
 
 import static org.junit.Assert.assertEquals;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
-import javax.jms.Session;
-import javax.jms.Topic;
+import javax.jms.*;
 
+import org.apache.activemq.command.ActiveMQQueue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,7 +34,10 @@ public class TestDynamicTopicReceiver {
 	
 	@Autowired
 	private Topic destination;
-	
+
+  @Autowired
+  private Queue queue;
+
 	@Before
 	public void prepareTest() {
 		registry.clear();
@@ -52,20 +50,19 @@ public class TestDynamicTopicReceiver {
 		Connection con = connectionFactory.createConnection();
 		con.start();
 		createDynamicReceiver(con);
-		producer.convertAndSendTopic(notification);
+		producer.convertAndSendMessage(notification);
 		
 		Thread.sleep(2000);
 		con.close();
 		
-		assertEquals(3, registry.getReceivedNotifications().size());
+		assertEquals(1, registry.getReceivedNotifications().size());
 		assertEquals("this is a topic", registry.getReceivedNotifications().get(0).getMessage());
-		assertEquals("this is a topic", registry.getReceivedNotifications().get(1).getMessage());
 	}
 	
 	
 	private void createDynamicReceiver(Connection con) throws JMSException {
 		Session session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
-		MessageConsumer consumer = session.createConsumer(destination);
+		MessageConsumer consumer = session.createConsumer(queue);
 		MessageListener listener = new DynamicTopicReceiver(registry);
 		consumer.setMessageListener(listener);
 	}

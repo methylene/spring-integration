@@ -18,19 +18,19 @@
 	
 	<bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
 		<property name="connectionFactory" ref="cachingConnectionFactory"/>
-		<property name="defaultDestination" ref="syncTestQueue"/>
+		<property name="defaultDestination" ref="asyncTestQueue"/>
 	</bean>
 	
-	<bean id="jmsTopicTemplate" class="org.springframework.jms.core.JmsTemplate">
-		<property name="connectionFactory" ref="cachingConnectionFactory"/>
-		<property name="pubSubDomain" value="true"/>
-	</bean>
+	<!--<bean id="jmsTopicTemplate" class="org.springframework.jms.core.JmsTemplate">-->
+		<!--<property name="connectionFactory" ref="cachingConnectionFactory"/>-->
+		<!--<property name="pubSubDomain" value="false"/>-->
+	<!--</bean>-->
 	
 	
 	<!-- Destinations -->
-	<bean id="syncTestQueue" class="org.apache.activemq.command.ActiveMQQueue">
-		<constructor-arg value="test.sync.queue"/>
-	</bean>
+	<!--<bean id="syncTestQueue" class="org.apache.activemq.command.ActiveMQQueue">-->
+		<!--<constructor-arg value="test.sync.queue"/>-->
+	<!--</bean>-->
 	
 	<bean id="asyncTestQueue" class="org.apache.activemq.command.ActiveMQQueue">
 		<constructor-arg value="test.async.queue"/>

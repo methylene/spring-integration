@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 
 import java.rmi.RemoteException;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import xpadro.spring.jms.receiver.SyncReceiver;
 			"/xpadro/spring/jms/config/jms-config.xml", 
 			"/xpadro/spring/jms/config/app-config.xml"})
 @RunWith(SpringJUnit4ClassRunner.class)
+@Ignore
 public class TestSyncMessaging {
 	
 	@Autowired
