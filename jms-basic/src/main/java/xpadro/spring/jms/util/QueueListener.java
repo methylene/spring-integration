@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class StreamListener implements MessageListener {
+public class QueueListener implements MessageListener {
 
   private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -22,7 +22,7 @@ public class StreamListener implements MessageListener {
 
   private final long timeoutMillis;
 
-  private StreamListener(int capacity, long timeout, TimeUnit unit) {
+  private QueueListener(int capacity, long timeout, TimeUnit unit) {
     if (capacity < 1) {
       queue = new LinkedBlockingDeque<>();
     } else {
@@ -61,14 +61,14 @@ public class StreamListener implements MessageListener {
     public Stream<Message> start() throws JMSException {
       Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
       MessageConsumer consumer = session.createConsumer(queue);
-      StreamListener listener = new StreamListener(capacity, timeout, unit);
+      QueueListener listener = new QueueListener(capacity, timeout, unit);
       consumer.setMessageListener(listener);
       return listener.openStream();
     }
 
   }
 
-  public static Builder listeningOn(Connection connection, Queue queue) {
+  public static Builder connect(Connection connection, Queue queue) {
     return new Builder(connection, queue);
   }
 
@@ -92,7 +92,7 @@ public class StreamListener implements MessageListener {
         lastPoll = System.currentTimeMillis();
         while (timeoutMillis < 0 || lastPoll + timeoutMillis > System.currentTimeMillis()) {
           try {
-            Message result = queue.poll(1, TimeUnit.MINUTES);
+            Message result = queue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
             if (result != null) {
               return result;
             }

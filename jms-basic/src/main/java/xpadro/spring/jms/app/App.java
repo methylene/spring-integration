@@ -4,77 +4,79 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
-import xpadro.spring.jms.util.StreamListener;
+import xpadro.spring.jms.util.QueueListener;
 
 import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
 import javax.jms.Message;
 import javax.jms.Queue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @Component
-public class App {
+public class App implements Callable<Long> {
 
   @Autowired
-  @Qualifier("jmsTemplate")
   private JmsTemplate jmsTemplate;
 
   @Autowired
-  @Qualifier("connectionFactory")
-  private ConnectionFactory connectionFactory;
+  private Connection connection;
 
   @Autowired
-  @Qualifier("asyncTestQueue")
-  private Queue queue;
+  private ExecutorService executor;
 
   @Autowired
-  @Qualifier("asyncTestQueue2")
-  private Queue queue2;
+  private Long appTimeoutMillis;
+
+  @Autowired
+  @Qualifier("numberOfMessages")
+  private Long numberOfMessages;
+
+  @Autowired
+  @Qualifier("conversionRequest")
+  private Queue conversionRequestQueue;
+
+  @Autowired
+  @Qualifier("conversionResponse")
+  private Queue conversionResponseQueue;
+
+  @Autowired
+  @Qualifier("archiveRequest")
+  private Queue archiveRequestQueue;
+
+  @Autowired
+  @Qualifier("archiveResponse")
+  private Queue archiveResponseQueue;
 
   @Autowired
   @Qualifier("sourceStream")
   private Supplier<Stream<String>> sourceStream;
 
-  public long testTopicSending() throws Exception {
-    long numberOfMessages = sourceStream.get().count();
-    Connection con = connectionFactory.createConnection();
-    con.start();
-    ExecutorService executor = Executors.newCachedThreadPool();
-    Stream<Message> receiver = StreamListener.listeningOn(con, queue).start();
-    Stream<Message> receiver2 = StreamListener.listeningOn(con, queue2).start();
+  public Long call() throws Exception {
+
+    Stream<Message> conversionResponses = QueueListener.connect(connection, conversionResponseQueue).start();
+    Stream<Message> archiveResponses = QueueListener.connect(connection, archiveResponseQueue).start();
 
     executor.submit(() -> {
-      sourceStream.get().forEach(message -> jmsTemplate.convertAndSend(queue, message));
+      sourceStream.get().forEachOrdered(message ->
+          jmsTemplate.convertAndSend(conversionRequestQueue, message));
       return null;
     });
 
     executor.submit(() -> {
-      receiver.limit(numberOfMessages).forEach(message ->
-          jmsTemplate.convertAndSend(queue2, message));
+      conversionResponses.limit(numberOfMessages).forEachOrdered(message ->
+          jmsTemplate.convertAndSend(archiveRequestQueue, message));
       return null;
     });
 
-    // Count the non-null messages at the end of the chain.
-    Future<Long> consumerFuture = executor.submit(() -> {
-      long[] count = new long[1];
-      receiver2.limit(numberOfMessages).forEach(message -> {
-        if (message != null) {
-          count[0]++;
-        }
-      });
-      return count[0];
-    });
-    Long result = consumerFuture.get(1, TimeUnit.MINUTES);
-    executor.shutdown();
-    con.close();
-    return result;
+    Future<Long> count = executor.submit(() ->
+        archiveResponses.limit(numberOfMessages).count());
+
+    return count.get(appTimeoutMillis, TimeUnit.MILLISECONDS);
 
   }
-
 
 }
