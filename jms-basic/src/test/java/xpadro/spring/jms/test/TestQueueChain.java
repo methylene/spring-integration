@@ -5,10 +5,11 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.support.converter.SimpleMessageConverter;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import xpadro.spring.jms.model.Notification;
-import xpadro.spring.jms.receiver.NotificationReceiver;
+import xpadro.spring.jms.receiver.StreamListener;
 
 import javax.jms.*;
 import java.util.concurrent.*;
@@ -41,11 +42,9 @@ public class TestQueueChain {
   @Qualifier("asyncTestQueue2")
   private Queue queue2;
 
-  private Stream<Notification> sourceStream() {
+  private Stream<String> sourceStream() {
     ThreadLocalRandom random = ThreadLocalRandom.current();
-    return IntStream.range(0, TOTAL_MESSAGES).boxed().map(i ->
-        new Notification("" + i, "M" + random.nextInt())
-    );
+    return IntStream.range(0, TOTAL_MESSAGES).boxed().map(i -> "" + i);
   }
 
   @Test
@@ -53,23 +52,23 @@ public class TestQueueChain {
     Connection con = connectionFactory.createConnection();
     con.start();
     ExecutorService executor = Executors.newCachedThreadPool();
-    NotificationReceiver receiver = createDynamicReceiver(con, queue);
-    NotificationReceiver receiver2 = createDynamicReceiver(con, queue2);
+    StreamListener receiver = createDynamicReceiver(con, queue);
+    StreamListener receiver2 = createDynamicReceiver(con, queue2);
     executor.submit(() -> {
-      sourceStream().forEach(notification -> jmsTemplate.convertAndSend(queue, notification));
+      sourceStream().forEach(message -> jmsTemplate.convertAndSend(queue, message));
       return null;
     });
     executor.submit(() -> {
-      receiver.openStream().forEach(notification ->
-          jmsTemplate.convertAndSend(queue2, notification));
+      receiver.openStream().limit(TOTAL_MESSAGES).forEach(message ->
+          jmsTemplate.convertAndSend(queue2, message));
       return null;
     });
 
     // Count the non-null messages at the end of the chain.
     Future<Long> consumerFuture = executor.submit(() -> {
       long[] count = new long[1];
-      receiver2.openStream().forEach(notification -> {
-        if (notification != null) {
+      receiver2.openStream().limit(TOTAL_MESSAGES).forEach(message -> {
+        if (message != null) {
           count[0]++;
         }
       });
@@ -81,10 +80,10 @@ public class TestQueueChain {
 
   }
 
-  private NotificationReceiver createDynamicReceiver(Connection con, Queue queue) throws JMSException {
+  private StreamListener createDynamicReceiver(Connection con, Queue queue) throws JMSException {
     Session session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
     MessageConsumer consumer = session.createConsumer(queue);
-    NotificationReceiver listener = new NotificationReceiver(TOTAL_MESSAGES);
+    StreamListener listener = new StreamListener();
     consumer.setMessageListener(listener);
     return listener;
   }
