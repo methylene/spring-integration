@@ -31,8 +31,4 @@
     <constructor-arg value="test.async.queue"/>
   </bean>
 
-  <bean id="testTopic" class="org.apache.activemq.command.ActiveMQTopic">
-    <constructor-arg value="test.topic"/>
-  </bean>
-
 </beans>

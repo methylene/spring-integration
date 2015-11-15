@@ -1,4 +1,4 @@
-package xpadro.spring.jms.receiver;
+package xpadro.spring.jms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
