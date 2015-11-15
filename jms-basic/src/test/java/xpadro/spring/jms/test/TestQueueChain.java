@@ -5,10 +5,8 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jms.core.JmsTemplate;
-import org.springframework.jms.support.converter.SimpleMessageConverter;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import xpadro.spring.jms.model.Notification;
 import xpadro.spring.jms.receiver.StreamListener;
 
 import javax.jms.*;
@@ -52,14 +50,16 @@ public class TestQueueChain {
     Connection con = connectionFactory.createConnection();
     con.start();
     ExecutorService executor = Executors.newCachedThreadPool();
-    StreamListener receiver = createDynamicReceiver(con, queue);
-    StreamListener receiver2 = createDynamicReceiver(con, queue2);
+    Stream<Message> receiver = StreamListener.listeningOn(con, queue).start();
+    Stream<Message> receiver2 = StreamListener.listeningOn(con, queue2).start();
+
     executor.submit(() -> {
       sourceStream().forEach(message -> jmsTemplate.convertAndSend(queue, message));
       return null;
     });
+
     executor.submit(() -> {
-      receiver.openStream().limit(TOTAL_MESSAGES).forEach(message ->
+      receiver.limit(TOTAL_MESSAGES).forEach(message ->
           jmsTemplate.convertAndSend(queue2, message));
       return null;
     });
@@ -67,7 +67,7 @@ public class TestQueueChain {
     // Count the non-null messages at the end of the chain.
     Future<Long> consumerFuture = executor.submit(() -> {
       long[] count = new long[1];
-      receiver2.openStream().limit(TOTAL_MESSAGES).forEach(message -> {
+      receiver2.limit(TOTAL_MESSAGES).forEach(message -> {
         if (message != null) {
           count[0]++;
         }
@@ -80,11 +80,11 @@ public class TestQueueChain {
 
   }
 
-  private StreamListener createDynamicReceiver(Connection con, Queue queue) throws JMSException {
-    Session session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
-    MessageConsumer consumer = session.createConsumer(queue);
-    StreamListener listener = new StreamListener();
-    consumer.setMessageListener(listener);
-    return listener;
-  }
+//  private StreamListener createDynamicReceiver(Connection con, Queue queue) throws JMSException {
+//    Session session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
+//    MessageConsumer consumer = session.createConsumer(queue);
+//    StreamListener listener = new StreamListener();
+//    consumer.setMessageListener(listener);
+//    return listener;
+//  }
 }

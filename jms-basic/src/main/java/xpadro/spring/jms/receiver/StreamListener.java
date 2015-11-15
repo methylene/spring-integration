@@ -3,8 +3,7 @@ package xpadro.spring.jms.receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jms.Message;
-import javax.jms.MessageListener;
+import javax.jms.*;
 import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -23,7 +22,7 @@ public class StreamListener implements MessageListener {
 
   private final long timeoutMillis;
 
-  public StreamListener(int capacity, long timeout, TimeUnit unit) {
+  private StreamListener(int capacity, long timeout, TimeUnit unit) {
     if (capacity < 1) {
       queue = new LinkedBlockingDeque<>();
     } else {
@@ -36,12 +35,41 @@ public class StreamListener implements MessageListener {
     }
   }
 
-  public StreamListener(int capacity) {
-    this(capacity, -1, TimeUnit.MILLISECONDS);
+  public static class Builder {
+    private int capacity = -1;
+    private long timeout = -1;
+    private TimeUnit unit = TimeUnit.MILLISECONDS;
+    private final Connection connection;
+    private final Queue queue;
+
+    private Builder(Connection connection, Queue queue) {
+      this.connection = connection;
+      this.queue = queue;
+    }
+
+    public Builder timeout(long timeout, TimeUnit unit) {
+      this.timeout = timeout;
+      this.unit = unit;
+      return this;
+    }
+
+    public Builder capacity(int capacity) {
+      this.capacity = capacity;
+      return this;
+    }
+
+    public Stream<Message> start() throws JMSException {
+      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      MessageConsumer consumer = session.createConsumer(queue);
+      StreamListener listener = new StreamListener(capacity, timeout, unit);
+      consumer.setMessageListener(listener);
+      return listener.openStream();
+    }
+
   }
 
-  public StreamListener() {
-    this(-1, -1, TimeUnit.MILLISECONDS);
+  public static Builder listeningOn(Connection connection, Queue queue) {
+    return new Builder(connection, queue);
   }
 
   @Override
@@ -80,7 +108,7 @@ public class StreamListener implements MessageListener {
 
   public synchronized Stream<Message> openStream() {
     if (streamOpened) {
-      throw new IllegalStateException("Stream already open");
+      throw new java.lang.IllegalStateException("Stream already open");
     }
     streamOpened = true;
     return StreamSupport.stream(
